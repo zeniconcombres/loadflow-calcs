@@ -16,8 +16,8 @@ import plotly.graph_objects as go
 # X_R = 3
 SCR = 1.1
 X_R = 5.49
-V = 1.0
-Vth = 1.0
+V = 1.1
+Vth = 0.9
 
 TODAY = pd.to_datetime("today").strftime("%Y-%m-%d")
 PROJECT = "BDWF1"
@@ -33,11 +33,40 @@ beta = Xth / Zth_abs**2
 
 # Calculate the power transfer
 def power_transfer(V, Vth, alpha, beta, theta):
+    """ Calculate the active (P) and reactive (Q) power transfer in a power system.
+        V (float): Voltage magnitude at the receiving end.
+        Vth (float): Voltage magnitude at the sending end (Thevenin equivalent voltage).
+        alpha (float): Real part of the admittance.
+        beta (float): Imaginary part of the admittance.
+        theta (float): Phase angle difference between the sending and receiving end voltages (in radians).
+    
+    Returns:
+        tuple: A tuple containing:
+            - P (float): Active power transfer.
+            - Q (float): Reactive power transfer.
+    """
     P = alpha*(V**2 - V*Vth*np.cos(theta)) + beta*(V*Vth*np.sin(theta))
     Q = beta*(V**2 - V*Vth*np.cos(theta)) - alpha*(V*Vth*np.sin(theta))
     return P, Q
 
 def power_transfer_partial_deriv(P, V, Vth, alpha, beta, theta):
+    """ Calculate the partial derivatives of power transfer with respect to 
+        the phase angle (theta) and voltage (V).
+            P (float): Active power.
+            V (float): Voltage magnitude.
+            Vth (float): Thevenin equivalent voltage magnitude.
+            alpha (float): Real part of the admittance.
+            beta (float): Imaginary part of the admittance.
+            theta (float): Phase angle difference between the voltages.
+            tuple: A tuple containing:
+                - dPdtheta (float): Partial derivative of active power with respect to theta.
+                - dQdV (float): Partial derivative of reactive power with respect to voltage.
+    
+    Returns:
+        tuple: A tuple containing:
+            - dPdtheta (float): Partial derivative of active power with respect to theta.
+            - dQdV (float): Partial derivative of reactive power with respect to voltage.
+    """
     dPdtheta = V*Vth*(alpha*np.sin(theta) + beta*np.cos(theta))
     dQdV = 2*beta*V - (
         ((Vth**2)*V / (Zth_abs**2)) + 2*P*alpha*V - 2*(alpha**2)*(V**3)
@@ -47,14 +76,19 @@ def power_transfer_partial_deriv(P, V, Vth, alpha, beta, theta):
     return dPdtheta, dQdV
 
 def generating_results(V, Vth, alpha, beta, theta_range):
-    """_summary_
-
-    Args:
-        V (_type_): _description_
-        Vth (_type_): _description_
-        alpha (_type_): _description_
-        beta (_type_): _description_
-        theta_range (_type_): needs to be a range of values for theta in degrees as a default.
+    """ Generates a DataFrame containing power transfer results for a range of theta values.
+            V (float): Voltage magnitude at the sending end (pu).
+            Vth (float): Voltage magnitude at the receiving end (pu).
+            alpha (float): Line resistance (pu).
+            beta (float): Line reactance (pu).
+            theta_range (iterable): Range of theta values in degrees.
+        Returns:
+            pandas.DataFrame: DataFrame containing the following columns:
+                - "P (pu)": Active power transfer (pu).
+                - "Q (pu)": Reactive power transfer (pu).
+                - "dPdtheta (pu)": Partial derivative of active power with respect to theta (pu).
+                - "dQdV (pu)": Partial derivative of reactive power with respect to voltage (pu).
+                - "Theta (deg)": Theta values in degrees.
     """
     # Generating the dataframe
     results_dict = {"P (pu)":[], "Q (pu)":[],"dPdtheta (pu)":[], "dQdV (pu)":[]}
@@ -75,10 +109,12 @@ def generating_results(V, Vth, alpha, beta, theta_range):
     return results
 
 def plot_power_transfer(results, print_fig=False):
-    """_summary_
-
-    Args:
-        results (_type_): _description_
+    """ Plots the power transfer results against the angle theta.
+        Parameters:
+            results (DataFrame): A pandas DataFrame containing the power transfer results with columns 
+                            "Theta (deg)", "P (pu)", "Q (pu)", "dPdtheta (pu)", and "dQdV (pu)".
+            print_fig (bool): If True, saves the figure as a PNG file. Default is False.
+        Returns: None
     """
     # Plotting the results
     fig, ax = plt.subplots(1,1)
@@ -92,7 +128,7 @@ def plot_power_transfer(results, print_fig=False):
     ax.set_ylabel('P | Q (pu)')
     ax.axvline(x=0, color='k', linestyle='-')
     ax.axhline(y=0, color='k', linestyle='-')
-    ax.set_title(f'{PROJECT} Power Transfer vs. Theta')
+    ax.set_title(f'{PROJECT} Power Transfer vs. Theta: V{V} Vth{Vth} SCR{SCR} XR{X_R}')
     ax.legend()
     ax.set_xlim([-90, 120])
     ax.set_ylim([-2.0, 2.0])
@@ -100,13 +136,19 @@ def plot_power_transfer(results, print_fig=False):
     plt.show()
     print(TODAY)
     if print_fig:
-        fig.savefig(f"{TODAY}_{PROJECT}_power_transfer.png")
+        fig.savefig(f"{TODAY}_{PROJECT}_power_transfer_V{V}_Vth{Vth}_SCR{SCR}_XR{X_R}.png")
 
 def plot_power_transfer_plotly(results, print_fig=False):
-    """_summary_
-
-    Args:
-        results (_type_): _description_
+    """ Plots power transfer characteristics using Plotly.
+            results (dict): A dictionary containing the following keys:
+                - "Theta (deg)": List or array of theta values in degrees.
+                - "P (pu)": List or array of active power values in per unit.
+                - "Q (pu)": List or array of reactive power values in per unit.
+                - "dPdtheta (pu)": List or array of dP/dTheta values in per unit.
+                - "dQdV (pu)": List or array of dQ/dV values in per unit.
+            print_fig (bool, optional): If True, saves the plot as an HTML file. Defaults to False.
+        Returns:
+            None
     """
     fig = go.Figure()
 
@@ -128,7 +170,7 @@ def plot_power_transfer_plotly(results, print_fig=False):
 
     # Update layout
     fig.update_layout(
-        title=f'{PROJECT} Power Transfer vs. Theta',
+        title=f'{PROJECT} Power Transfer vs. Theta: V{V} Vth{Vth} SCR{SCR} XR{X_R}',
         xaxis_title='Theta (deg)',
         yaxis_title='P | Q (pu)',
         xaxis=dict(range=[-90, 120]),
@@ -141,7 +183,7 @@ def plot_power_transfer_plotly(results, print_fig=False):
 
     # Save the plot as a PNG file if print_fig is True
     if print_fig:
-        fig.write_html(f"{TODAY}_{PROJECT}_power_transfer.html")
+        fig.write_html(f"{TODAY}_{PROJECT}_power_transfer_V{V}_Vth{Vth}_SCR{SCR}_XR{X_R}.html")
 
 if __name__ == "__main__":
     print_fig = False
