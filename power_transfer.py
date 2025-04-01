@@ -12,15 +12,14 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 # Constants
-# SCR = 1.2
-# X_R = 3
-SCR = 1.1
-X_R = 5.49
-V = 1.1
-Vth = 0.9
+SCR = 1.2
+X_R = 3
+V = 1.0 # Receiving end voltage
+Vth = 0.9 # Sending end voltage
 
 TODAY = pd.to_datetime("today").strftime("%Y-%m-%d")
 PROJECT = "BDWF1"
+POWER_FLOW = -1 # default -1 is charging i.e. flow from Vth to V, 1 is discharging i.e. flow from V to Vth
 
 # Basic calculations
 # the values are in pu
@@ -108,7 +107,7 @@ def generating_results(V, Vth, alpha, beta, theta_range):
         # print(f"Theta: {theta} deg, dPdtheta: {dPdtheta} pu, dQdV: {dQdV} pu")
     return results
 
-def plot_power_transfer(results, print_fig=False):
+def plot_power_transfer(results, print_fig=False, powerflow=POWER_FLOW):
     """ Plots the power transfer results against the angle theta.
         Parameters:
             results (DataFrame): A pandas DataFrame containing the power transfer results with columns 
@@ -138,7 +137,7 @@ def plot_power_transfer(results, print_fig=False):
     if print_fig:
         fig.savefig(f"{TODAY}_{PROJECT}_power_transfer_V{V}_Vth{Vth}_SCR{SCR}_XR{X_R}.png")
 
-def plot_power_transfer_plotly(results, print_fig=False):
+def plot_power_transfer_plotly(results, print_fig=False, powerflow=POWER_FLOW, save_fig=False):
     """ Plots power transfer characteristics using Plotly.
             results (dict): A dictionary containing the following keys:
                 - "Theta (deg)": List or array of theta values in degrees.
@@ -168,25 +167,93 @@ def plot_power_transfer_plotly(results, print_fig=False):
     fig.add_vline(x=0, line=dict(color='black'))
     fig.add_hline(y=0, line=dict(color='black'))
 
+    # Find the Theta (deg) values where Q = 0.395pu
+    q_target = 0.395
+    theta_q_target = results.loc[np.isclose(results["Q (pu)"], q_target, atol=0.005), "Theta (deg)"]
+
+    # Add markers for Q = 0.395pu
+    for theta in theta_q_target:
+        fig.add_trace(go.Scatter(
+            x=[theta],
+            y=[q_target],
+            mode='markers',
+            marker=dict(color='red', size=10, symbol='x'),
+            name=f'Q = {q_target}pu at Theta = {theta:.2f}deg'
+        ))
+
+    # Find the Theta (deg) values where P = 1.0pu
+    p_target = 1.0
+    theta_p_target = results.loc[np.isclose(results["P (pu)"], p_target, atol=0.02), "Theta (deg)"]
+
+    # Add markers for P = 1.0pu
+    for theta in theta_p_target:
+        fig.add_trace(go.Scatter(
+            x=[theta],
+            y=[p_target],
+            mode='markers',
+            marker=dict(color='blue', size=10, symbol='x'),
+            name=f'P = {p_target}pu at Theta = {theta:.2f}deg'
+        ))
+        if theta:
+            break
+
+    # Find the Theta (deg) values where dQdV = 0
+    dQdV_target = 0
+    theta_dQdV_target = results.loc[np.isclose(results["dQdV (pu)"], dQdV_target, atol=0.03), "Theta (deg)"]
+
+    # Add markers for dQdV = 0
+    for theta in theta_dQdV_target:
+        fig.add_trace(go.Scatter(
+            x=[theta],
+            y=[dQdV_target],
+            mode='markers',
+            marker=dict(color='purple', size=10, symbol='x'),
+            name=f'dQdV = {dQdV_target}pu at Theta = {theta:.2f}deg'
+        ))
+
     # Update layout
+    if powerflow == 1:
+        direction_name = f'V{Vth} Vth{V} SCR{SCR} XR{X_R} discharging'
+    elif powerflow == -1:
+        direction_name = f'V{V} Vth{Vth} SCR{SCR} XR{X_R} charging'
+    else:
+        direction_name = f'V{V} Vth{Vth} SCR{SCR} XR{X_R} unknown'
+
     fig.update_layout(
-        title=f'{PROJECT} Power Transfer vs. Theta: V{V} Vth{Vth} SCR{SCR} XR{X_R}',
+        title=f'{PROJECT} Power Transfer vs. Theta: {direction_name}',
         xaxis_title='Theta (deg)',
         yaxis_title='P | Q (pu)',
         xaxis=dict(range=[-90, 120]),
         yaxis=dict(range=[-2.0, 2.0]),
-        legend=dict(x=0.01, y=0.99)
+        legend=dict(x=0.01, y=0.99)        
     )
 
     # Show the plot
-    fig.show()
+    fig.show(config={
+        'toImageButtonOptions': {
+            'filename': f"{TODAY}_{PROJECT}_power_transfer_{direction_name.replace(' ','_')}",
+            'format': "png"  # You can also set this to "jpeg", "svg", etc.
+            }
+        })
 
-    # Save the plot as a PNG file if print_fig is True
+    # Save the plot as a PNG file if save_fig is True
+    if save_fig:
+        fig.write_image(f"{TODAY}_{PROJECT}_power_transfer_{direction_name.replace(' ','_')}.png")
+
+    # Save the plot as a HTML file if print_fig is True
     if print_fig:
-        fig.write_html(f"{TODAY}_{PROJECT}_power_transfer_V{V}_Vth{Vth}_SCR{SCR}_XR{X_R}.html")
+        fig.write_html(f"{TODAY}_{PROJECT}_power_transfer_{direction_name.replace(' ','_')}.html")
+
 
 if __name__ == "__main__":
     print_fig = False
+    save=False
+    power_flow = -1
+    V = 0.87 # Receiving end voltage
+    Vth = 0.9 # Sending end voltage
+    SCR = 1.1
+    X_R = 5.49
     # print(os.getcwd())
     # plot_power_transfer(generating_results(V, Vth, alpha, beta, range(-90, 120)))
-    plot_power_transfer_plotly(generating_results(V, Vth, alpha, beta, range(-90, 120)),print_fig=print_fig)
+    plot_power_transfer_plotly(generating_results(V, Vth, alpha, beta, range(-90, 120)),
+                               print_fig=print_fig,powerflow=power_flow,save_fig=save)
