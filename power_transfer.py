@@ -14,12 +14,12 @@ import plotly.graph_objects as go
 # Constants
 SCR = 1.2
 X_R = 3
-V = 1.0 # Receiving end voltage
-Vth = 0.9 # Sending end voltage
+V = 1.0 # Sending end voltage
+Vth = 0.9 # Receiving end voltage
 
 TODAY = pd.to_datetime("today").strftime("%Y-%m-%d")
 PROJECT = "BDWF1"
-POWER_FLOW = -1 # default -1 is charging i.e. flow from Vth to V, 1 is discharging i.e. flow from V to Vth
+POWER_FLOW = 1 # default 1 is discharging i.e. flow from Vth to V, 1 is discharging i.e. flow from V to Vth
 
 # Basic calculations
 # the values are in pu
@@ -48,7 +48,22 @@ def power_transfer(V, Vth, alpha, beta, theta):
     Q = beta*(V**2 - V*Vth*np.cos(theta)) - alpha*(V*Vth*np.sin(theta))
     return P, Q
 
-def power_transfer_partial_deriv(P, V, Vth, alpha, beta, theta):
+def power_transfer_partial_deriv_dPdTh(V, Vth, alpha, beta, theta):
+    """ Calculate the partial derivatives of power transfer with respect to 
+        the phase angle (theta) and voltage (V).
+            V (float): Voltage magnitude.
+            Vth (float): Thevenin equivalent voltage magnitude.
+            alpha (float): Real part of the admittance.
+            beta (float): Imaginary part of the admittance.
+            theta (float): Phase angle difference between the voltages.
+    
+    Returns:
+        - dPdtheta (float): Partial derivative of active power with respect to theta.
+    """
+    dPdtheta = V*Vth*(alpha*np.sin(theta) + beta*np.cos(theta))
+    return dPdtheta
+
+def power_transfer_partial_deriv_dQdV(P, V, Vth, alpha, beta):
     """ Calculate the partial derivatives of power transfer with respect to 
         the phase angle (theta) and voltage (V).
             P (float): Active power.
@@ -57,22 +72,16 @@ def power_transfer_partial_deriv(P, V, Vth, alpha, beta, theta):
             alpha (float): Real part of the admittance.
             beta (float): Imaginary part of the admittance.
             theta (float): Phase angle difference between the voltages.
-            tuple: A tuple containing:
-                - dPdtheta (float): Partial derivative of active power with respect to theta.
-                - dQdV (float): Partial derivative of reactive power with respect to voltage.
     
     Returns:
-        tuple: A tuple containing:
-            - dPdtheta (float): Partial derivative of active power with respect to theta.
-            - dQdV (float): Partial derivative of reactive power with respect to voltage.
+        - dQdV (float): Partial derivative of reactive power with respect to voltage.
     """
-    dPdtheta = V*Vth*(alpha*np.sin(theta) + beta*np.cos(theta))
     dQdV = 2*beta*V - (
         ((Vth**2)*V / (Zth_abs**2)) + 2*P*alpha*V - 2*(alpha**2)*(V**3)
     )/(np.sqrt(
         ((Vth**2)*(V**2) / (Zth_abs**2)) - ((P**2) - 2*P*alpha*(V**2) + (alpha**2)*(V**4))
     ))
-    return dPdtheta, dQdV
+    return dQdV
 
 def generating_results(V, Vth, alpha, beta, theta_range):
     """ Generates a DataFrame containing power transfer results for a range of theta values.
@@ -101,7 +110,8 @@ def generating_results(V, Vth, alpha, beta, theta_range):
         results.loc[results["Theta (deg)"] == theta,"Q (pu)"] = Q
         # print(f"Theta: {theta} deg, P: {P} pu, Q: {Q} pu")
 
-        dPdtheta, dQdV = power_transfer_partial_deriv(P, V, Vth, alpha, beta, np.radians(theta))
+        dPdtheta = power_transfer_partial_deriv_dPdTh(V, Vth, alpha, beta, np.radians(theta))
+        dQdV = power_transfer_partial_deriv_dQdV(P, V, Vth, alpha, beta)
         results.loc[results["Theta (deg)"] == theta,"dPdtheta (pu)"] = dPdtheta
         results.loc[results["Theta (deg)"] == theta,"dQdV (pu)"] = dQdV
         # print(f"Theta: {theta} deg, dPdtheta: {dPdtheta} pu, dQdV: {dQdV} pu")
@@ -213,9 +223,9 @@ def plot_power_transfer_plotly(results, print_fig=False, powerflow=POWER_FLOW, s
 
     # Update layout
     if powerflow == 1:
-        direction_name = f'V{Vth} Vth{V} SCR{SCR} XR{X_R} discharging'
+        direction_name = f'V{V} Vth{Vth} SCR{SCR} XR{X_R} discharging'
     elif powerflow == -1:
-        direction_name = f'V{V} Vth{Vth} SCR{SCR} XR{X_R} charging'
+        direction_name = f'V{Vth} Vth{V} SCR{SCR} XR{X_R} charging'
     else:
         direction_name = f'V{V} Vth{Vth} SCR{SCR} XR{X_R} unknown'
 
@@ -249,8 +259,8 @@ if __name__ == "__main__":
     print_fig = False
     save=False
     power_flow = -1
-    V = 0.87 # Receiving end voltage
-    Vth = 0.9 # Sending end voltage
+    V = 1.0 # Sending end voltage
+    Vth = 0.96 # Receiving end voltage
     SCR = 1.1
     X_R = 5.49
     # print(os.getcwd())
