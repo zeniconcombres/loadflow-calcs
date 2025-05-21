@@ -17,10 +17,10 @@ import sys, os
 from power_transfer import *
 
 # Constants
-SCR = 1.2
-X_R = 3
-V = 1.0 # Receiving end voltage
-Vth = 0.9 # Sending end voltage
+SCR = 1.1
+X_R = 5.49
+# V = 1.05 # Receiving end voltage
+Vth = 1.2328 # Sending end voltage - base case
 
 TODAY = pd.to_datetime("today").strftime("%Y-%m-%d")
 PROJECT = "BDWF1"
@@ -35,6 +35,36 @@ Xth = Rth * X_R
 alpha = Rth / Zth_abs**2
 beta = Xth / Zth_abs**2
 
-dQdV = power_transfer_partial_deriv_dQdV(P, V, Vth, alpha, beta)
+P = 0.0 # Active power (pu)
+
+V_array = np.arange(0.0, 1.4, 0.01)
+V_df = pd.DataFrame(V_array, columns=["V"]).set_index("V")
+for V in V_array:
+    # Calculate the dQdV curve
+    dQdV = power_transfer_partial_deriv_dQdV(P, V, Vth, alpha, beta)
+    V_df.loc[V, "dQdV"] = dQdV
+    # # print(f"V: {V:.2f}, dQ/dV: {dQdV:.2f}")
+    # Q = (
+    #     V*(V-Vth) - P*complex(Rth,Xth)
+    # ) / complex(Xth,-Rth)
+    
+    V_df.loc[V, "Q"] = abs(Q)
+    print(f"V: {V:.2f}, dQ/dV: {dQdV:.2f}, Q: {abs(Q):.2f}")
+
+# we actually need a new equation - rearranging the voltage drop 
+# Q = power_transfer(theta, V, Vth, alpha, beta)
 
 
+
+# Plot the QV curve
+plot = True
+if plot:
+    plt.figure(figsize=(10, 6))
+    # plt.plot(V_df.index, V_df["dQdV"], marker='x')
+    plt.plot(V_df.index, V_df["Q"], marker='x')
+    plt.title("QV Curve")
+    plt.xlabel("Voltage (pu)")
+    plt.ylabel("dQ/dV | Q (pu)")
+    plt.grid()
+    plt.axhline(0, color='red', linestyle='--', label='dQ/dV = 0')
+    plt.show()

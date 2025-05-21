@@ -258,9 +258,9 @@ def plot_power_transfer_plotly(results, print_fig=False, powerflow=POWER_FLOW, s
 if __name__ == "__main__":
     print_fig = False
     save=False
-    power_flow = -1
-    V = 1.0 # Sending end voltage
-    Vth = 0.96 # Receiving end voltage
+    power_flow = 1
+    V = 0.9 # Sending end voltage
+    Vth = 1.23 # Receiving end voltage
     SCR = 1.1
     X_R = 5.49
     # print(os.getcwd())
