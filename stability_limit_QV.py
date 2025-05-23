@@ -17,7 +17,8 @@ from power_transfer import *
 SCR = 1.1
 X_R = 5.49
 # V = 1.05 # Receiving end voltage
-Vth = 1.2328 # Sending end voltage - base case
+# Vth = 1.2328 # Sending end voltage - base case
+Vth = 1.01 # Sending end voltage - base case
 
 TODAY = pd.to_datetime("today").strftime("%Y-%m-%d")
 PROJECT = "BDWF1"
@@ -49,9 +50,7 @@ for V in V_array:
     dQdV = power_transfer_partial_deriv_dQdV(P, V, Vth, alpha, beta)
     V_df.loc[V, "dQdV"] = dQdV
     # print(f"V: {V:.2f}, dQ/dV: {dQdV:.2f}")
-    Q = (
-        V*(V-Vth) - P*complex(Rth,Xth)
-    ) / complex(Xth,-Rth)
+    Q = fsolve(equation, 0)[0] # initial guess is 0
     delta = np.arcsin(P*Xth/V)
     # Q = 1/Xth * (V*np.cos(delta)-1) if delta else None
     V_df.loc[V, "Q"] = Q
