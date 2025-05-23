@@ -260,7 +260,7 @@ if __name__ == "__main__":
     save=False
     power_flow = 1
     V = 0.9 # Sending end voltage
-    Vth = 1.23 # Receiving end voltage
+    Vth = 1.226 # Receiving end voltage
     SCR = 1.1
     X_R = 5.49
     # print(os.getcwd())
