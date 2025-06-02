@@ -259,8 +259,8 @@ if __name__ == "__main__":
     print_fig = False
     save=False
     power_flow = 1
-    V = 0.9 # Sending end voltage
-    Vth = 1.226 # Receiving end voltage
+    V = 0.99 # Sending end voltage
+    Vth = 1.0914 # Receiving end voltage
     SCR = 1.1
     X_R = 5.49
     # print(os.getcwd())
